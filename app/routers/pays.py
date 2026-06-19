@@ -14,7 +14,7 @@ async def lister_pays():
 async def lots_pays(pays: str):
     url = _get_url(pays)
     try:
-        return await fetch_lots(url)
+        return await fetch_lots(url, pays)
     except Exception:
         raise HTTPException(status_code=503, detail=f"API {pays} indisponible")
 
@@ -35,7 +35,7 @@ async def mesures_pays(pays: str, entrepot_id: str | None = None):
 async def alertes_pays(pays: str):
     url = _get_url(pays)
     try:
-        return await fetch_alertes(url)
+        return await fetch_alertes(url, pays)
     except Exception:
         raise HTTPException(status_code=503, detail=f"API {pays} indisponible")
 
