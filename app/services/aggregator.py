@@ -18,8 +18,11 @@ async def fetch_lots(base_url: str, pays: str | None = None) -> list[dict]:
     return await _get(url)
 
 
-async def fetch_mesures_latest(base_url: str) -> list[dict]:
-    return await _get(f"{base_url}/mesures/latest")
+async def fetch_mesures_latest(base_url: str, pays: str | None = None) -> list[dict]:
+    url = f"{base_url}/mesures/latest"
+    if pays:
+        url += f"?pays={pays}"
+    return await _get(url)
 
 
 async def fetch_alertes(base_url: str, pays: str | None = None) -> dict:
@@ -33,7 +36,7 @@ async def fetch_pays_summary(pays: str, base_url: str) -> dict:
     try:
         lots = await fetch_lots(base_url, pays)
         alertes = await fetch_alertes(base_url, pays)
-        latest = await fetch_mesures_latest(base_url)
+        latest = await fetch_mesures_latest(base_url, pays)
 
         derniere = latest[0] if latest else None
         nb_alertes = (
