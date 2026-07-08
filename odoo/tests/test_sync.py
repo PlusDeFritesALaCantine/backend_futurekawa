@@ -1,14 +1,14 @@
 import threading
 import xmlrpc.client
 
-from odoo_integration_futurekawa.app import config
+from backend_futurekawa.odoo.app import config
 import httpx
 import pytest
 import respx
 
-from odoo_integration_futurekawa.app import sync
-from odoo_integration_futurekawa.app.odoo_client import OdooClient
-from odoo_integration_futurekawa.tests.fakes import FakeOdooCommon, FakeOdooObject
+from backend_futurekawa.odoo.app import sync
+from backend_futurekawa.odoo.app.odoo_client import OdooClient
+from backend_futurekawa.odoo.tests.fakes import FakeOdooCommon, FakeOdooObject
 
 BACKEND_URL = "http://backend-test:8002"
 PRODUCT_CODE = "CAFE-VERT"

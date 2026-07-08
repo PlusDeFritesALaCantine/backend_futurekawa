@@ -19,9 +19,9 @@ from datetime import datetime, timezone
 
 import httpx
 
-from odoo_integration_futurekawa.app import config
-from odoo_integration_futurekawa.app.futurekawa_client import FuturekawaClient
-from odoo_integration_futurekawa.app.mapping import (
+from backend_futurekawa.odoo.app import config
+from backend_futurekawa.odoo.app.futurekawa_client import FuturekawaClient
+from backend_futurekawa.odoo.app.mapping import (
     alert_signature,
     build_chatter_body,
     build_lot_vals,
@@ -29,7 +29,7 @@ from odoo_integration_futurekawa.app.mapping import (
     odoo_business_key,
     should_schedule_activity,
 )
-from odoo_integration_futurekawa.app.odoo_client import OdooAuthError, OdooClient, OdooConnectionError, OdooRpcError
+from backend_futurekawa.odoo.app.odoo_client import OdooAuthError, OdooClient, OdooConnectionError, OdooRpcError
 
 logger = logging.getLogger(__name__)
 

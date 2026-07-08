@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
-import odoo_integration_futurekawa.app.main as main
-from odoo_integration_futurekawa.app.sync import SyncReport, PaysSyncResult
+import backend_futurekawa.odoo.app.main as main
+from backend_futurekawa.odoo.app.sync import SyncReport, PaysSyncResult
 
 
 def _fake_report(dry_run=False):

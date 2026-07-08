@@ -1,4 +1,4 @@
-from odoo_integration_futurekawa.app.mapping import (
+from backend_futurekawa.odoo.app.mapping import (
     alert_signature,
     build_chatter_body,
     build_lot_vals,

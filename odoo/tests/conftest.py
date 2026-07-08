@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from odoo_integration_futurekawa.app.main import app
+from backend_futurekawa.odoo.app.main import app
 
 
 @pytest.fixture

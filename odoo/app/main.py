@@ -5,9 +5,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from odoo_integration_futurekawa.app import config
-from odoo_integration_futurekawa.app.schemas import SyncReportOut
-from odoo_integration_futurekawa.app.sync import run_sync
+from backend_futurekawa.odoo.app import config
+from backend_futurekawa.odoo.app.schemas import SyncReportOut
+from backend_futurekawa.odoo.app.sync import run_sync
 
 logger = logging.getLogger(__name__)
 
