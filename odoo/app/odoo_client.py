@@ -139,10 +139,13 @@ class OdooClient:
         user_id: int | None = None,
         act_type_xmlid: str = "mail.mail_activity_data_todo",
     ) -> int:
+        # Passe par x_futurekawa_activity_schedule (odoo_addon/x_futurekawa_stock),
+        # pas par le activity_schedule natif de mail.activity.mixin : ce dernier renvoie
+        # un recordset mail.activity que xmlrpc.client ne peut pas marshaller en externe.
         kwargs: dict = {"act_type_xmlid": act_type_xmlid, "summary": summary, "note": note}
         if user_id is not None:
             kwargs["user_id"] = user_id
-        return self._execute(model, "activity_schedule", [[res_id]], kwargs)
+        return self._execute(model, "x_futurekawa_activity_schedule", [[res_id]], kwargs)
 
     def resolve_user_id(self, login: str) -> int | None:
         results = self.search_read("res.users", [["login", "=", login]], ["id"], limit=1)

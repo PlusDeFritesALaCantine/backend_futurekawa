@@ -97,12 +97,15 @@ class FakeOdooObject:
             self.messages.append((model, res_ids[0], kwargs.get("body")))
             return len(self.messages)
 
-        if method == "activity_schedule":
+        if method == "x_futurekawa_activity_schedule":
+            # Nom réel appelé côté client (voir app/odoo_client.py) : le wrapper
+            # odoo_addon/x_futurekawa_stock.x_futurekawa_activity_schedule, pas le
+            # activity_schedule natif de mail.activity.mixin (non marshallable en XML-RPC).
             (res_ids,) = args
             self.activities.append(
                 (model, res_ids[0], kwargs.get("summary"), kwargs.get("note"), kwargs.get("user_id"))
             )
-            return len(self.activities)
+            return [len(self.activities)]
 
         raise NotImplementedError(f"FakeOdooObject ne gère pas la méthode '{method}'")
 

@@ -59,6 +59,13 @@ Le module Quality (`quality.check`) n'est **pas** utilisé : uniquement des cham
 custom sur `stock.lot`, pour rester compatible Community sans dépendance
 supplémentaire.
 
+**Note d'implémentation — `activity_schedule` en XML-RPC externe** : le mixin natif
+`mail.activity.mixin.activity_schedule()` renvoie le recordset `mail.activity` créé,
+qu'`xmlrpc.client` ne sait pas marshaller (seuls des types Python simples passent par
+`execute_kw`). `odoo_addon/x_futurekawa_stock` expose donc un wrapper
+`x_futurekawa_activity_schedule()` qui appelle `activity_schedule()` et ne renvoie que
+les ids ; `app/odoo_client.py` appelle ce wrapper, jamais la méthode native directement.
+
 ## Déclenchement : boucle périodique (et non webhook)
 
 `backend_futurekawa` est un agrégateur HTTP sans état ni persistance : il n'a
@@ -76,16 +83,54 @@ ajouté plus tard.
 
 ## Prérequis
 
-- Docker & Docker Compose
-- Une instance Odoo 17.0 Community déjà accessible (URL, base, utilisateur, clé API)
+- Docker/Podman & Compose
+- Une instance Odoo 17.0 Community accessible (URL, base, utilisateur, clé API) — soit
+  l'instance locale fournie par `docker-compose.yml` (services `odoo`/`odoo_db`, pour le
+  développement et la démo), soit une instance déjà hébergée en production
 - Un produit Odoo créé au préalable avec `default_code=CAFE-VERT` (ou la valeur de
   `ODOO_DEFAULT_PRODUCT_DEFAULT_CODE`) — la synchronisation échoue explicitement
   (erreur fatale journalisée) tant qu'il n'existe pas
 
 ## Installation de l'addon Odoo
 
-Étape manuelle, à faire une fois sur l'instance Odoo cible (ce dépôt ne peut pas
-déployer directement sur une instance distante) :
+### Instance locale (fournie, dev/démo)
+
+`docker-compose.yml` démarre une instance Odoo 17.0 dédiée (`odoo` + sa base `odoo_db`)
+et monte automatiquement `odoo_addon/` dans son addons-path (`/mnt/extra-addons`) —
+aucune copie manuelle nécessaire. Une seule commande initialise la base avec les
+modules requis et le module custom, sans passer par l'assistant web :
+
+```bash
+podman-compose up -d odoo_db odoo   # (ou docker compose)
+podman exec odoo-erp odoo -d futurekawa --db_host=odoo_db --db_user=odoo --db_password=odoo \
+  -i stock,mail,x_futurekawa_stock --without-demo=all --stop-after-init
+```
+
+Cela crée la base `futurekawa` avec un utilisateur `admin`/`admin` par défaut (identique
+au comportement d'une installation Odoo classique via CLI). Il reste à créer le produit
+"café vert" (une fois, via XML-RPC ou l'UI `http://localhost:8069`) :
+
+```bash
+python3 -c "
+import xmlrpc.client
+url, db, user, pwd = 'http://localhost:8069', 'futurekawa', 'admin', 'admin'
+uid = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/common').authenticate(db, user, pwd, {})
+models = xmlrpc.client.ServerProxy(f'{url}/xmlrpc/2/object')
+models.execute_kw(db, uid, pwd, 'product.product', 'create', [{
+    'name': 'Café vert FutureKawa', 'default_code': 'CAFE-VERT', 'type': 'product', 'tracking': 'lot',
+}])
+"
+```
+
+**Après toute modification du code Python de `odoo_addon/`**, un `-u x_futurekawa_stock`
+(comme ci-dessus, avec `-u` au lieu de `-i`) met à jour le schéma, mais le process Odoo
+déjà démarré doit être redémarré (`podman restart odoo-erp`) pour ré-importer le code
+Python modifié — le rechargement à chaud (`--dev=reload`) n'est pas activé sur cette image.
+
+### Instance externe déjà hébergée (production)
+
+Étape manuelle, à faire une fois sur l'instance Odoo cible (ce dépôt ne peut pas déployer
+directement sur une instance distante) :
 
 1. Copier `odoo_addon/x_futurekawa_stock/` dans le dossier addons de l'instance Odoo.
 2. Redémarrer le serveur Odoo.
@@ -100,13 +145,15 @@ déployer directement sur une instance distante) :
 ```bash
 cp .env.example .env
 # renseigner ODOO_URL / ODOO_DB / ODOO_USERNAME / ODOO_API_KEY
-docker compose up --build
+# (instance locale : voir MQTT_Broker/../COMMANDS.md pour les valeurs prêtes à l'emploi)
+podman-compose up -d --build   # ou docker compose up --build
 ```
 
-Le service démarre sur `http://localhost:8003`. Si `backend_futurekawa` tourne
-dans un autre `docker compose` (réseau Docker différent), ajustez
-`BACKEND_FUTUREKAWA_URL` vers une adresse joignable (IP hôte, réseau Docker partagé,
-ou `host.docker.internal` selon la plateforme).
+Le service démarre sur `http://localhost:8003`. `backend_futurekawa` tourne nativement
+sur l'hôte (venv, pas en conteneur — voir `COMMANDS.md` racine) : `BACKEND_FUTUREKAWA_URL`
+pointe donc vers `http://host.containers.internal:8002` (Podman) — équivalent
+`host.docker.internal` sous Docker Desktop — à condition que ce process écoute sur
+`0.0.0.0` et non `127.0.0.1` (c'est le cas dans les commandes documentées).
 
 ## Mode dry-run
 
@@ -164,9 +211,11 @@ existants de `backend_futurekawa`.
 
 ## Intégration Docker Compose / CI
 
-- `docker-compose.yml` suit le même format que les autres dépôts (`build: .`,
-  `env_file: .env`, `restart: unless-stopped`) — un seul service, car l'instance
-  Odoo est externe et déjà déployée (pas de conteneur Odoo ajouté ici).
+- `docker-compose.yml` suit le même format que les autres dépôts pour le service
+  `odoo_integration_futurekawa` (`build: .`, `env_file: .env`, `restart: unless-stopped`).
+  Deux services complémentaires (`odoo`, `odoo_db`) fournissent une instance Odoo 17.0
+  locale pour le dev/la démo — en production, ils seraient remplacés par l'URL/DB/API
+  key d'une instance déjà hébergée (voir `.env.example`), sans changer ce service.
 - `.github/workflows/ci.yml` reproduit exactement le pipeline des 4 autres dépôts
   Python (`api_futurekawa`, `backend_futurekawa`) : checkout, Python 3.12, `pip
   install`, `pytest -q`. Le cahier des charges mentionne Jenkins, mais l'équipe a

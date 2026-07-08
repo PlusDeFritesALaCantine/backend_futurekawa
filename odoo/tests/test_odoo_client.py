@@ -3,8 +3,8 @@ import socket
 import pytest
 import xmlrpc.client
 
-from backend_futurekawa.odoo.app.odoo_client import OdooAuthError, OdooClient, OdooConnectionError, OdooRpcError
-from backend_futurekawa.odoo.tests.fakes import FakeOdooCommon, FakeOdooObject, RaisingCommon
+from app.odoo_client import OdooAuthError, OdooClient, OdooConnectionError, OdooRpcError
+from tests.fakes import FakeOdooCommon, FakeOdooObject, RaisingCommon
 
 
 def make_client(common=None, obj=None, **kwargs):
