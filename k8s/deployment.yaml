@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: futurekawa-backend
+  namespace: futurekawa-app
+  labels:
+    app: futurekawa-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: futurekawa-backend
+  template:
+    metadata:
+      labels:
+        app: futurekawa-backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/plusdefritesalacantine/backend_futurekawa:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8002
+              name: http
+          env:
+            - name: API_PORT
+              value: "8002"
+            - name: BRESIL_API_URL
+              value: "http://api-futurekawa-service:8001"
+            - name: EQUATEUR_API_URL
+              value: "http://equateur-api-service:8001"
+            - name: COLOMBIE_API_URL
+              value: "http://colombie-api-service:8001"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
