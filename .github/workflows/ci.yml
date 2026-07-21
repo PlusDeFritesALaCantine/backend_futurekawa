@@ -29,7 +29,7 @@ jobs:
           source .venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
-          python -m pytest -q --import-mode=importlib
+          PYTHONPATH=. python -m pytest tests/ odoo/tests/ -q
 
   build-and-push:
     runs-on: shared-runners
