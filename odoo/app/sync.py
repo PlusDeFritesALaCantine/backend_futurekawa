@@ -35,18 +35,13 @@ logger = logging.getLogger(__name__)
 
 _sync_lock = threading.Lock()
 
-# Dernière signature d'alerte notifiée par lot (clé métier -> signature texte).
-# En mémoire du process, sur le même principe que la dédup email de
-# api_futurekawa/app/services/notifier.py (_dernier_recap_envoye) : évite de reposter
-# la même note/activité à chaque cycle tant que l'alerte ne change pas. Limite connue
-# identique : remise à zéro si ce service redémarre.
 _derniere_alerte_notifiee: dict[str, str] = {}
 
 
 @dataclass
 class PaysSyncResult:
     pays: str
-    status: str = "ok"  # "ok" | "indisponible"
+    status: str = "ok"
     lots_crees: int = 0
     lots_mis_a_jour: int = 0
     messages_postes: int = 0
@@ -205,14 +200,14 @@ def _sync_lot(odoo, lot, idx, product_id, dry_run, activity_user_id, result: Pay
         result.lots_crees += 1
 
     if odoo_lot_id is None:
-        return  # dry-run sur un lot pas encore créé : pas de res_id pour poster un message
+        return 
 
     signature = alert_signature(lot, idx)
     if signature is None:
         _derniere_alerte_notifiee.pop(key, None)
         return
     if _derniere_alerte_notifiee.get(key) == signature:
-        return  # alerte déjà notifiée et inchangée depuis le dernier cycle
+        return
 
     if dry_run:
         logger.info("[DRY-RUN] noterait l'alerte sur le lot %s : %s", key, signature)

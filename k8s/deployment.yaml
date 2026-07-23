@@ -31,6 +31,19 @@ spec:
               value: "http://equateur-api-service:8001"
             - name: COLOMBIE_API_URL
               value: "http://colombie-api-service:8001"
+          
+            - name: ODOO_URL
+              value: "http://odoo-service:8069"
+            - name: ODOO_DB
+              value: "futurekawa" 
+            - name: ODOO_USERNAME
+              value: "admin"
+            - name: ODOO_API_KEY
+              value: "admin"
+            - name: ODOO_DRY_RUN
+              value: "false"
+            - name: BACKEND_FUTUREKAWA_URL
+              value: "http://localhost:8002"
           livenessProbe:
             httpGet:
               path: /health
