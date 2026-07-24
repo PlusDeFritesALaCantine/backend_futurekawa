@@ -22,7 +22,7 @@ LOT_BRESIL = {
     "statut": "conforme",
 }
 LOT_EQUATEUR = {
-    "id": "L1",  # même id brut qu'un lot brésilien, pays différent
+    "id": "L1", 
     "pays": "equateur",
     "exploitation": "Finca Y",
     "entrepot_id": "e2",
@@ -45,6 +45,7 @@ def patch_config(monkeypatch):
 def make_factory(obj: FakeOdooObject, common: FakeOdooCommon | None = None):
     common = common or FakeOdooCommon(uid=1)
     obj.seed("product.product", 100, {"default_code": PRODUCT_CODE})
+    obj.seed("discuss.channel", 1, {"name": "Alertes"})
 
     def factory():
         return OdooClient(
@@ -86,8 +87,6 @@ def test_premiere_synchro_cree_les_lots():
     resultats = {r.pays: r for r in report.per_pays}
     assert resultats["bresil"].lots_crees == 1
     assert resultats["equateur"].lots_crees == 1
-    # Même id brut ("L1") des deux côtés mais deux enregistrements distincts créés
-    # (clé métier préfixée par pays) — pas de collision.
     assert len(obj._store["stock.lot"]) == 2
 
 
@@ -103,7 +102,7 @@ def test_deuxieme_synchro_met_a_jour_au_lieu_de_creer():
     assert premier.per_pays[0].lots_crees == 1
     assert second.per_pays[0].lots_crees == 0
     assert second.per_pays[0].lots_mis_a_jour == 1
-    assert len(obj._store["stock.lot"]) == 1  # pas de doublon
+    assert len(obj._store["stock.lot"]) == 1
 
 
 @respx.mock
@@ -115,8 +114,8 @@ def test_dry_run_ne_modifie_jamais_odoo():
     report = sync.run_sync(dry_run=True, odoo_client_factory=factory)
 
     assert report.dry_run is True
-    assert report.per_pays[0].lots_crees == 1  # "aurait créé" est bien compté
-    assert obj._store.get("stock.lot", {}) == {}  # ...mais rien n'a été écrit
+    assert report.per_pays[0].lots_crees == 1
+    assert obj._store.get("stock.lot", {}) == {}
     assert obj.messages == []
     assert obj.activities == []
 
@@ -168,7 +167,72 @@ def test_alerte_critique_planifie_une_activite_bas_seulement_une_note():
 
     assert report.per_pays[0].messages_postes == 2
     assert report.per_pays[0].activites_planifiees == 1
+    assert report.per_pays[0].alertes_canal == 2
     assert len(obj.activities) == 1
+
+
+@respx.mock
+def test_alerte_publiee_sur_canal_discuss():
+    obj = FakeOdooObject()
+    factory = make_factory(obj)
+    alertes = {
+        "lots_problematiques": [{"lot": LOT_BRESIL, "raison": "Lot périmé : stocké depuis 400 jours"}],
+        "mesures_hors_seuil": [],
+    }
+    mock_pays(["bresil"], {"bresil": [LOT_BRESIL]}, {"bresil": alertes})
+
+    report = sync.run_sync(dry_run=False, odoo_client_factory=factory)
+
+    assert report.per_pays[0].alertes_canal == 1
+    canal_messages = [m for m in obj.messages if m[0] == "discuss.channel"]
+    assert len(canal_messages) == 1
+    assert "Alerte Qualité FutureKawa" in canal_messages[0][2]
+
+
+@respx.mock
+def test_dry_run_ne_publie_pas_sur_canal():
+    obj = FakeOdooObject()
+    factory = make_factory(obj)
+    alertes = {
+        "lots_problematiques": [{"lot": LOT_BRESIL, "raison": "Lot périmé : stocké depuis 400 jours"}],
+        "mesures_hors_seuil": [],
+    }
+    mock_pays(["bresil"], {"bresil": [LOT_BRESIL]}, {"bresil": alertes})
+
+    report = sync.run_sync(dry_run=True, odoo_client_factory=factory)
+
+    assert report.per_pays[0].alertes_canal == 0
+    assert obj.messages == []
+
+
+@respx.mock
+def test_erreur_canal_n_empeche_pas_la_synchro_du_lot():
+    obj = FakeOdooObject()
+    common = FakeOdooCommon(uid=1)
+    obj.seed("product.product", 100, {"default_code": PRODUCT_CODE})
+
+    def factory():
+        return OdooClient(
+            url="https://odoo.example.test",
+            db="futurekawa",
+            username="integration@futurekawa.local",
+            api_key="fake-key",
+            common_proxy=common,
+            object_proxy=obj,
+        )
+
+    alertes = {
+        "lots_problematiques": [{"lot": LOT_BRESIL, "raison": "Lot périmé : stocké depuis 400 jours"}],
+        "mesures_hors_seuil": [],
+    }
+    mock_pays(["bresil"], {"bresil": [LOT_BRESIL]}, {"bresil": alertes})
+
+    report = sync.run_sync(dry_run=False, odoo_client_factory=factory)
+
+    assert report.per_pays[0].lots_crees == 1
+    assert report.per_pays[0].messages_postes == 1
+    assert report.per_pays[0].alertes_canal == 0
+    assert report.per_pays[0].erreurs == []
 
 
 @respx.mock
@@ -185,7 +249,9 @@ def test_meme_alerte_non_repostee_au_cycle_suivant():
     second = sync.run_sync(dry_run=False, odoo_client_factory=factory)
 
     assert premier.per_pays[0].messages_postes == 1
-    assert second.per_pays[0].messages_postes == 0  # signature inchangée, pas reposté
+    assert premier.per_pays[0].alertes_canal == 1
+    assert second.per_pays[0].messages_postes == 0
+    assert second.per_pays[0].alertes_canal == 0
 
 
 @respx.mock
@@ -200,12 +266,12 @@ def test_echec_sur_un_lot_n_arrete_pas_les_autres():
 
     resultat = report.per_pays[0]
     assert len(resultat.erreurs) == 1
-    assert resultat.lots_crees == 1  # le deuxième lot est bien passé
+    assert resultat.lots_crees == 1
 
 
 @respx.mock
 def test_produit_absent_est_une_erreur_fatale():
-    obj = FakeOdooObject()  # pas de product.product seedé
+    obj = FakeOdooObject()
     common = FakeOdooCommon(uid=1)
 
     def factory():

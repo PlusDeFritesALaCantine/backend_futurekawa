@@ -46,6 +46,7 @@ class PaysSyncResult:
     lots_mis_a_jour: int = 0
     messages_postes: int = 0
     activites_planifiees: int = 0
+    alertes_canal: int = 0
     erreurs: list[str] = field(default_factory=list)
 
 
@@ -216,6 +217,15 @@ def _sync_lot(odoo, lot, idx, product_id, dry_run, activity_user_id, result: Pay
     body = build_chatter_body(lot, idx)
     odoo.message_post("stock.lot", odoo_lot_id, body)
     result.messages_postes += 1
+
+    try:
+        odoo.post_to_channel(
+            channel_name="Alertes",
+            body=f"⚠️ <b>Alerte Qualité FutureKawa</b> (Lot <b>{key}</b>) :<br/>{signature}",
+        )
+        result.alertes_canal += 1
+    except (OdooRpcError, OdooConnectionError) as exc:
+        logger.warning("Impossible d'envoyer l'alerte au canal #Alertes pour %s : %s", key, exc)
 
     if should_schedule_activity(lot, idx):
         odoo.activity_schedule(

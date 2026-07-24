@@ -76,6 +76,41 @@ def test_message_post_and_activity_schedule_recorded():
     assert obj.activities == [("stock.lot", 1, "Lot périmé", "détails", 9)]
 
 
+def test_post_to_channel_success():
+    obj = FakeOdooObject()
+    obj.seed("discuss.channel", 12, {"name": "Alertes"})
+    client = make_client(obj=obj)
+
+    msg_id = client.post_to_channel("Alertes", "Alerte sur le lot L1")
+
+    assert msg_id == 1
+    assert obj.messages == [("discuss.channel", 12, "Alerte sur le lot L1")]
+
+
+def test_post_to_channel_fallback_mail_channel():
+    obj = FakeOdooObject()
+    obj.fail_next(
+        "discuss.channel",
+        "search_read",
+        xmlrpc.client.Fault(1, "Object discuss.channel doesn't exist"),
+    )
+    obj.seed("mail.channel", 15, {"name": "Alertes"})
+    client = make_client(obj=obj)
+
+    msg_id = client.post_to_channel("Alertes", "Alerte fallback mail.channel")
+
+    assert msg_id == 1
+    assert obj.messages == [("mail.channel", 15, "Alerte fallback mail.channel")]
+
+
+def test_post_to_channel_not_found_raises_rpc_error():
+    obj = FakeOdooObject()
+    client = make_client(obj=obj)
+
+    with pytest.raises(OdooRpcError, match="Canal de discussion introuvable : #Inexistant"):
+        client.post_to_channel("Inexistant", "Message d'alerte")
+
+
 def test_fault_raises_odoo_rpc_error():
     obj = FakeOdooObject()
     obj.fail_next(

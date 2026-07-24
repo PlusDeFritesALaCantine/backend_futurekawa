@@ -166,3 +166,21 @@ class OdooClient:
     def resolve_user_id(self, login: str) -> int | None:
         results = self.search_read("res.users", [["login", "=", login]], ["id"], limit=1)
         return results[0]["id"] if results else None
+
+    def post_to_channel(self, channel_name: str, body: str) -> int:
+        """Envoie un message dans un canal de discussion Odoo/Discuss (ex: '# Alertes')."""
+        # 1. Tenter la recherche avec le modèle Odoo moderne (discuss.channel), puis l'ancien (mail.channel)
+        channel_model = "discuss.channel"
+        channels = []
+        try:
+            channels = self.search_read(channel_model, [["name", "=", channel_name]], ["id"], limit=1)
+        except OdooRpcError:
+            channel_model = "mail.channel"
+            channels = self.search_read(channel_model, [["name", "=", channel_name]], ["id"], limit=1)
+
+        if not channels:
+            raise OdooRpcError(f"Canal de discussion introuvable : #{channel_name}")
+
+        channel_id = channels[0]["id"]
+
+        return self.message_post(channel_model, channel_id, body)
