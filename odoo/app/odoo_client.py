@@ -139,13 +139,29 @@ class OdooClient:
         user_id: int | None = None,
         act_type_xmlid: str = "mail.mail_activity_data_todo",
     ) -> int:
-        # Passe par x_futurekawa_activity_schedule (odoo_addon/x_futurekawa_stock),
-        # pas par le activity_schedule natif de mail.activity.mixin : ce dernier renvoie
-        # un recordset mail.activity que xmlrpc.client ne peut pas marshaller en externe.
-        kwargs: dict = {"act_type_xmlid": act_type_xmlid, "summary": summary, "note": note}
+        """Planifie une activité en créant un enregistrement natif 'mail.activity'."""
+        model_records = self.search_read("ir.model", [["model", "=", model]], ["id"], limit=1)
+        if not model_records:
+            raise OdooRpcError(f"Modèle Odoo introuvable : {model}")
+        res_model_id = model_records[0]["id"]
+        activity_type_records = self.search_read(
+            "mail.activity.type",
+            [["res_model", "in", [model, False]]],
+            ["id"],
+            limit=1,
+        )
+        activity_type_id = activity_type_records[0]["id"] if activity_type_records else 1
+        activity_vals: dict = {
+            "res_model_id": res_model_id,
+            "res_id": res_id,
+            "activity_type_id": activity_type_id,
+            "summary": summary,
+            "note": note,
+        }
         if user_id is not None:
-            kwargs["user_id"] = user_id
-        return self._execute(model, "x_futurekawa_activity_schedule", [[res_id]], kwargs)
+            activity_vals["user_id"] = user_id
+
+        return self.create("mail.activity", activity_vals)
 
     def resolve_user_id(self, login: str) -> int | None:
         results = self.search_read("res.users", [["login", "=", login]], ["id"], limit=1)
