@@ -7,6 +7,11 @@ metadata:
     app: futurekawa-backend
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: futurekawa-backend
@@ -15,6 +20,9 @@ spec:
       labels:
         app: futurekawa-backend
     spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      terminationGracePeriodSeconds: 30
       containers:
         - name: backend
           image: ghcr.io/plusdefritesalacantine/backend_futurekawa:latest
@@ -26,12 +34,12 @@ spec:
             - name: API_PORT
               value: "8002"
             - name: BRESIL_API_URL
-              value: "http://api-futurekawa-service:8001"
+              value: "http://futurekawa-api-service:8001"
             - name: EQUATEUR_API_URL
-              value: "http://equateur-api-service:8001"
+              value: "http://futurekawa-api-service:8001"
             - name: COLOMBIE_API_URL
-              value: "http://colombie-api-service:8001"
-          
+              value: "http://futurekawa-api-service:8001"
+            
             - name: ODOO_URL
               value: "http://odoo-service:8069"
             - name: ODOO_DB
@@ -44,17 +52,19 @@ spec:
               value: "false"
             - name: BACKEND_FUTUREKAWA_URL
               value: "http://localhost:8002"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 3
+            periodSeconds: 3
+            failureThreshold: 2
           livenessProbe:
             httpGet:
               path: /health
               port: 8002
             initialDelaySeconds: 10
-            periodSeconds: 15
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8002
-            initialDelaySeconds: 5
             periodSeconds: 10
           resources:
             requests:
