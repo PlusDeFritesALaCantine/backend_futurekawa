@@ -71,6 +71,12 @@ class FakeOdooObject:
             domain = args[0] if args else []
             fields = kwargs.get("fields")
             limit = kwargs.get("limit")
+            if model == "ir.model" and not table:
+                target_model = domain[0][2] if domain and len(domain[0]) == 3 else "stock.lot"
+                return [{"id": 1, "model": target_model}]
+            if model == "mail.activity.type" and not table:
+                return [{"id": 1}]
+
             results = []
             for id_, vals in table.items():
                 if _match_domain(vals, domain):
@@ -84,6 +90,14 @@ class FakeOdooObject:
             (vals,) = args
             new_id = next(self._ids)
             table[new_id] = dict(vals)
+            if model == "mail.activity":
+                res_model = vals.get("res_model", "stock.lot")
+                res_id = vals.get("res_id")
+                summary = vals.get("summary")
+                note = vals.get("note")
+                user_id = vals.get("user_id")
+                self.activities.append((res_model, res_id, summary, note, user_id))
+
             return new_id
 
         if method == "write":
@@ -98,9 +112,6 @@ class FakeOdooObject:
             return len(self.messages)
 
         if method == "x_futurekawa_activity_schedule":
-            # Nom réel appelé côté client (voir app/odoo_client.py) : le wrapper
-            # odoo_addon/x_futurekawa_stock.x_futurekawa_activity_schedule, pas le
-            # activity_schedule natif de mail.activity.mixin (non marshallable en XML-RPC).
             (res_ids,) = args
             self.activities.append(
                 (model, res_ids[0], kwargs.get("summary"), kwargs.get("note"), kwargs.get("user_id"))
@@ -113,9 +124,16 @@ class FakeOdooObject:
 def _match_domain(vals: dict, domain: list) -> bool:
     """Sous-ensemble minimal : clauses ["champ","=",valeur] combinées en ET (suffisant
     ici car sync.py ne fait que des recherches par égalité simple)."""
-    for champ, op, valeur in domain:
-        if op != "=":
+    for item in domain:
+        if not isinstance(item, (list, tuple)) or len(item) != 3:
+            continue
+        champ, op, valeur = item
+        if op == "in":
+            if vals.get(champ) not in valeur:
+                return False
+        elif op == "=":
+            if vals.get(champ) != valeur:
+                return False
+        else:
             raise NotImplementedError(f"Opérateur de domaine non supporté par le fake : {op}")
-        if vals.get(champ) != valeur:
-            return False
     return True
