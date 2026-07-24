@@ -19,9 +19,9 @@ from datetime import datetime, timezone
 
 import httpx
 
-from app import config
-from app.futurekawa_client import FuturekawaClient
-from app.mapping import (
+from . import config
+from .futurekawa_client import FuturekawaClient
+from .mapping import (
     alert_signature,
     build_chatter_body,
     build_lot_vals,
@@ -29,7 +29,7 @@ from app.mapping import (
     odoo_business_key,
     should_schedule_activity,
 )
-from app.odoo_client import OdooAuthError, OdooClient, OdooConnectionError, OdooRpcError
+from .odoo_client import OdooAuthError, OdooClient, OdooConnectionError, OdooRpcError
 
 logger = logging.getLogger(__name__)
 
