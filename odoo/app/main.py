@@ -6,8 +6,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
-from schemas import SyncReportOut
-from sync import run_sync
+from .schemas import SyncReportOut
+from .sync import run_sync
 
 logger = logging.getLogger(__name__)
 
