@@ -59,3 +59,17 @@ async def fetch_pays_summary(pays: str, base_url: str) -> dict:
             "nb_alertes": None,
             "derniere_mesure": None,
         }
+
+
+async def relayer(methode: str, url: str, *, params: dict | None = None,
+                  json_body: Any = None) -> httpx.Response:
+    """Relaie un appel vers une API pays et rend la réponse brute.
+
+    Contrairement à `_get`, ne lève pas sur un statut d'erreur : c'est
+    l'appelant qui décide quoi en faire. Un 409 « lot déjà existant » renvoyé
+    par l'API pays doit arriver au front tel quel, pas déguisé en 503 —
+    sinon l'utilisateur voit « pays indisponible » alors que le service
+    répond parfaitement.
+    """
+    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+        return await client.request(methode, url, params=params, json=json_body)
